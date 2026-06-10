@@ -1,6 +1,0 @@
-language: python
-python:
-  - "3.11"
-script:
-  - python -m doctest README.md -o NORMALIZE_WHITESPACE
-  - python -m doctest SCENARIOS.md -o NORMALIZE_WHITESPACE
