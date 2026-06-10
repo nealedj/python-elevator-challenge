@@ -10,6 +10,8 @@ A naive implementation of the business logic is provided in the `elevator.py` fi
 
 Open a pull request with your solution. Good luck! Have fun!
 
+Once the tests here pass, there is a second, more realistic suite in [SCENARIOS.md](SCENARIOS.md): it simulates passengers arriving over time — rush hours, near misses, and randomized stress tests — and asserts that everybody is delivered within bounded time.
+
 ## Test Harness
 
 Like all elevators, ours can go up and down. We define constants for these. The elevator also happens to be in a building with six floors.
