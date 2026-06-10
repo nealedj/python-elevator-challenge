@@ -105,9 +105,9 @@ Quin rides from the lobby toward 6. Rex appears on 3 just *before* the elevator 
 Finally, the torture test: thirty passengers with random origins, destinations, and arrival times, all crowding into a two-minute window. Every passenger must be delivered — no one may be stranded or starved — and the per-tick invariants (stay inside the building, never drive a rider away from their destination) must hold throughout.
 
     >>> import random
-    >>> def rush_hour(seed, passengers=30, horizon=120):
+    >>> def rush_hour(seed, passengers=30, horizon=120, make_logic=lambda: None):
     ...     rng = random.Random(seed)
-    ...     b = Building(verbose=False)
+    ...     b = Building(logic=make_logic(), verbose=False)
     ...     for i in range(passengers):
     ...         origin = rng.randrange(1, FLOOR_COUNT + 1)
     ...         destination = rng.randrange(1, FLOOR_COUNT + 1)
@@ -132,4 +132,65 @@ And twenty more seeds, held to a hard service guarantee. A sweep over six floors
     >>> all(rush_hour(seed).everyone_delivered for seed in range(20))
     True
     >>> max(rush_hour(seed).max_total_time for seed in range(20)) <= 30
+    True
+
+## A more efficient dispatcher
+
+The sweep algorithm in `elevator.py` is what the README's tests mandate, and benchmarking (`python benchmark.py`) shows its trip scheduling is hard to beat: a textbook nearest-call-first greedy dispatcher measures *worse* on every traffic pattern, because stopping for an opposite-direction caller commits the car to that passenger's whole trip and breaks up the batching that sweeps get for free.
+
+What the sweep ignores is where the car waits when it has nothing to do: it strands itself wherever the last sweep ended, usually at the top or bottom of the building. The dispatcher in `efficient_elevator.py` keeps the sweep scheduling and adds anticipatory parking — when idle, it relocates toward the median floor of recent call origins, so it is already nearby when the next passenger shows up.
+
+    >>> from elevator import ElevatorLogic
+    >>> from efficient_elevator import EfficientElevatorLogic
+
+Watch where the car goes after delivering Ann to the top floor: instead of waiting at 6, it heads back to the middle of the building.
+
+    >>> b = Building(logic=EfficientElevatorLogic())
+    >>> b.schedule(1, Passenger('Ann', 1, 6))
+    >>> b.run_until_idle()
+    <Ann in> 2... 3... 4... 5... 6... <Ann out> 5... 4... 3...
+
+So when Bea calls from floor 2, the car is one floor away instead of four. Parking trips carry nobody and owe nobody anything, so a real call cancels them mid-flight.
+
+    >>> b.schedule(b.time + 1, Passenger('Bea', 2, 5))
+    >>> b.run_until_idle()
+    2... <Bea in> 3... 4... 5... <Bea out> 4... 3... 2...
+    >>> b.report()
+    Ann: floor 1 -> 6, waited 0, door to door 5
+    Bea: floor 2 -> 5, waited 1, door to door 5
+
+Note that the second time it parked at floor 2, not 3 — it has started learning where the demand is.
+
+    >>> b.current_floor
+    2
+
+On a quiet, lobby-heavy morning — the situation real buildings face every day — parking cuts the average wait by more than a third compared to the standard dispatcher:
+
+    >>> def quiet_morning(make_logic, seeds=20):
+    ...     waits = []
+    ...     for seed in range(seeds):
+    ...         rng = random.Random(seed)
+    ...         b = Building(logic=make_logic(), verbose=False)
+    ...         for i in range(8):
+    ...             origin = 1 if rng.random() < 0.8 else rng.randrange(2, FLOOR_COUNT + 1)
+    ...             destination = rng.randrange(2, FLOOR_COUNT + 1)
+    ...             while destination == origin:
+    ...                 destination = rng.randrange(2, FLOOR_COUNT + 1)
+    ...             b.schedule(rng.randrange(1, 240), Passenger('P%d' % i, origin, destination))
+    ...         b.run_until_idle(limit=2000)
+    ...         assert b.everyone_delivered
+    ...         waits.extend(p.wait_time for p in b.delivered)
+    ...     return round(sum(waits) / float(len(waits)), 2)
+    >>> quiet_morning(ElevatorLogic)
+    2.95
+    >>> quiet_morning(EfficientElevatorLogic)
+    1.8
+
+And it still honors the same hard service guarantees under rush hour load:
+
+    >>> all(rush_hour(seed, make_logic=EfficientElevatorLogic).everyone_delivered
+    ...     for seed in range(20))
+    True
+    >>> max(rush_hour(seed, make_logic=EfficientElevatorLogic).max_total_time
+    ...     for seed in range(20)) <= 30
     True

@@ -10,7 +10,7 @@ A naive implementation of the business logic is provided in the `elevator.py` fi
 
 Open a pull request with your solution. Good luck! Have fun!
 
-Once the tests here pass, there is a second, more realistic suite in [SCENARIOS.md](SCENARIOS.md): it simulates passengers arriving over time — rush hours, near misses, and randomized stress tests — and asserts that everybody is delivered within bounded time.
+Once the tests here pass, there is a second, more realistic suite in [SCENARIOS.md](SCENARIOS.md): it simulates passengers arriving over time — rush hours, near misses, and randomized stress tests — and asserts that everybody is delivered within bounded time. It also covers an alternative dispatcher in `efficient_elevator.py` that cuts waiting times on that passenger model; `benchmark.py` compares the two head to head.
 
 ## Test Harness
 
