@@ -11,6 +11,13 @@ All four doctest suites pass on this branch. Every measurement quoted
 below was reproduced on this branch with the scripts described in the
 appendix.
 
+> **Status:** the two Part 2 fixes (§2.3) have since been applied on
+> this branch — Fix A in `DestinationBank._cost`, Fix B as a
+> `_pick_boarder` boarding-order hook on `ElevatorBank` overridden by
+> `DestinationBank` — and DESTINATION.md gained a "Twice the rush"
+> scenario pinning the surge behaviour. The structural items in Part 1
+> and the further ideas in §2.4 remain open.
+
 ---
 
 ## Part 1 — Structure, readability, maintainability

@@ -88,6 +88,22 @@ The conventional bank, on the *identical* traffic, saturates. Its handling capac
     >>> conv.time
     5264
 
+## Twice the rush
+
+Burst demand is the real enemy: some mornings everyone arrives at once. Compress the same 5,000 commuters into *half* the window — 2.8 arrivals per tick — and a queue must form in the lobby. What matters is what the controller does with it. Assignment alone is not enough: a car that boards a deep queue first come, first served leaves on a milk run no matter how cleverly the queue was assigned, and the bank's capacity collapses to the conventional bank's exactly when it is needed most. So the boarding order is grouped too — the longest-waiting passenger boards first (nobody is ever starved), everyone bound for a floor already on the car's plate follows, and remaining space goes to the largest destination group on the landing. Car-loads stay destination-coherent no matter how deep the queue gets, and the bank digests the surge:
+
+    >>> surge = morning_rush(DestinationBank(verbose=False), window=1800)
+    >>> surge.everyone_delivered
+    True
+    >>> surge.average_wait
+    18.71
+    >>> surge.max_total_time
+    117
+    >>> surge.time
+    1845
+
+An average wait under nineteen ticks at double intensity, and the lobby is clear 45 ticks after the last arrival.
+
 ## The evening is not the problem
 
 Going home is easy mode for any dispatcher: a down sweep collects passengers floor by floor and everyone shares the same destination, so grouping is automatic. The conventional bank nearly keeps up — destination dispatch wins on the margin, not by an order of magnitude. The morning, not the evening, is why towers buy these systems.

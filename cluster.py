@@ -240,20 +240,30 @@ class ElevatorBank(object):
             passenger.delivered_at = self.time
             self.delivered.append(passenger)
             self._emit("<%s out %s>" % (passenger.name, car.name))
+        boarded = 0
         while len(car.riding) < self.capacity:
+            # Eligibility is rechecked after every boarder: the first one
+            # may commit an idle car to a direction, shutting out waiting
+            # passengers going the other way.
             eligible = [p for p in self.waiting if p.origin == floor
                         and p.assigned_car is car
                         and car.logic.direction in (None, p.direction)]
             if not eligible:
                 break
-            self.waiting.remove(eligible[0])
-            self._board(eligible[0], car)
+            passenger = self._pick_boarder(car, eligible, boarded)
+            self.waiting.remove(passenger)
+            self._board(passenger, car)
+            boarded += 1
         # Whoever could have boarded but found the car full goes back to the
         # dispatcher and is dealt to another car next tick.
         for passenger in self.waiting:
             if (passenger.origin == floor and passenger.assigned_car is car
                     and car.logic.direction in (None, passenger.direction)):
                 passenger.assigned_car = None
+
+    def _pick_boarder(self, car, eligible, boarded):
+        """Which eligible passenger boards next: first come, first served."""
+        return eligible[0]
 
     def _board(self, passenger, car):
         passenger.boarded_at = self.time
