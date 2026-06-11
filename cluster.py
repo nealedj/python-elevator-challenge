@@ -18,11 +18,14 @@ Each car runs the unmodified LOOK logic from `elevator.py`, which never
 needed to know how tall the building is. Cars have finite capacity: when a
 car fills up, whoever is left on the landing is handed to the next-best car.
 
+`make_logic` factories should bind the building's height where the logic
+needs it -- e.g. `lambda: EfficientElevatorLogic(floors=floors)` -- since
+the bank calls them with no arguments.
+
 The scenario suite lives in CLUSTER.md. To run it:
 $ python -m doctest CLUSTER.md -o NORMALIZE_WHITESPACE
 """
 from elevator import ElevatorLogic, UP, DOWN
-from simulation import Passenger
 
 # Estimated ticks a car spends on each stop already on its plate.
 STOP_COST = 2
@@ -39,6 +42,12 @@ class Car(object):
         self.logic = make_logic()
         self.logic.callbacks = self._Callbacks(self)
         self.riding = []
+
+    @property
+    def tag(self):
+        """How this car appears in trace tokens: ' A', or nothing for the
+        anonymous car of a single-elevator building."""
+        return ' ' + self.name if self.name else ''
 
     class _Callbacks(object):
         def __init__(self, outer):
@@ -83,15 +92,19 @@ class Car(object):
 class ElevatorBank(object):
     """A building with several elevators behind one set of hall buttons."""
 
+    _never_finished = "the bank never finished its work"
+
     def __init__(self, floors=11, cars=6, capacity=10, starting_floors=None,
-                 verbose=True, make_logic=ElevatorLogic):
+                 verbose=True, make_logic=ElevatorLogic, car_names=None):
         self.floors = floors
         self.capacity = capacity
         self.verbose = verbose
         if starting_floors is None:
             starting_floors = [1] * cars
         assert len(starting_floors) == cars
-        self.cars = [Car(self, CAR_NAMES[i], starting_floors[i], make_logic)
+        if car_names is None:
+            car_names = CAR_NAMES
+        self.cars = [Car(self, car_names[i], starting_floors[i], make_logic)
                      for i in range(cars)]
         self.time = 0
         self.arrivals = {}
@@ -127,7 +140,7 @@ class ElevatorBank(object):
             if self.idle:
                 return
             self.tick()
-        assert False, "the bank never finished its work"
+        assert False, self._never_finished
 
     @property
     def idle(self):
@@ -239,7 +252,7 @@ class ElevatorBank(object):
             car.riding.remove(passenger)
             passenger.delivered_at = self.time
             self.delivered.append(passenger)
-            self._emit("<%s out %s>" % (passenger.name, car.name))
+            self._emit("<%s out%s>" % (passenger.name, car.tag))
         boarded = 0
         while len(car.riding) < self.capacity:
             # Eligibility is rechecked after every boarder: the first one
@@ -269,7 +282,7 @@ class ElevatorBank(object):
         passenger.boarded_at = self.time
         passenger.assigned_car = car
         car.riding.append(passenger)
-        self._emit("<%s in %s>" % (passenger.name, car.name))
+        self._emit("<%s in%s>" % (passenger.name, car.tag))
         car.logic.on_floor_selected(passenger.destination)
 
     def _emit(self, token):

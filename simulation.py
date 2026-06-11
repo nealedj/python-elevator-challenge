@@ -8,9 +8,16 @@ their destination, and get off when they reach it. The simulation records how
 long everybody waits, so scheduling regressions show up as stranded passengers
 or blown wait-time bounds.
 
+The mechanics -- the tick loop, the passenger exchange at each stop, the
+per-tick safety invariants, and the recorded metrics -- live in the multi-car
+harness in `cluster.py`. A `Building` is an `ElevatorBank` with one anonymous
+car of unlimited capacity, so dispatch is trivial (every call goes to the only
+car) and the trace reads `2... <Ann in>` rather than `A2... <Ann in A>`.
+
 The scenario suite lives in SCENARIOS.md. To run it:
 $ python -m doctest SCENARIOS.md -o NORMALIZE_WHITESPACE
 """
+from cluster import ElevatorBank
 from elevator import ElevatorLogic, UP, DOWN, FLOOR_COUNT
 
 
@@ -37,9 +44,9 @@ class Passenger(object):
         return self.delivered_at - self.arrived_at
 
 
-class Building(object):
+class Building(ElevatorBank):
     """
-    Simulates the elevator together with the passengers using it.
+    Simulates one elevator together with the passengers using it.
 
     Each tick, passengers due to arrive show up and call the elevator, then
     the elevator moves one floor or pauses, exactly like the README harness.
@@ -49,42 +56,33 @@ class Building(object):
     indicator above the door.
     """
 
-    def __init__(self, logic=None, starting_floor=1, verbose=True):
-        self.logic = logic if logic is not None else ElevatorLogic()
-        self.current_floor = starting_floor
-        self.motor_direction = None
-        self.logic.callbacks = self._Callbacks(self)
-        self.verbose = verbose
-        self.time = 0
-        self.arrivals = {}      # time -> passengers appearing then
-        self.waiting = []       # at their floor, call button pressed
-        self.riding = []
-        self.delivered = []
-        self.all_passengers = []
+    _never_finished = "the elevator never finished its work"
 
-    class _Callbacks(object):
-        def __init__(self, outer):
-            self._outer = outer
+    def __init__(self, logic=None, starting_floor=1, verbose=True,
+                 floors=FLOOR_COUNT):
+        if logic is None:
+            logic = ElevatorLogic()
+        ElevatorBank.__init__(self, floors=floors, cars=1,
+                              capacity=float('inf'),
+                              starting_floors=[starting_floor],
+                              verbose=verbose, make_logic=lambda: logic,
+                              car_names=[''])
 
-        @property
-        def current_floor(self):
-            return self._outer.current_floor
+    @property
+    def logic(self):
+        return self.cars[0].logic
 
-        @property
-        def motor_direction(self):
-            return self._outer.motor_direction
+    @property
+    def current_floor(self):
+        return self.cars[0].current_floor
 
-        @motor_direction.setter
-        def motor_direction(self, direction):
-            self._outer.motor_direction = direction
+    @property
+    def motor_direction(self):
+        return self.cars[0].motor_direction
 
-    def schedule(self, time, passenger):
-        """Have a passenger show up at their origin floor at the given time."""
-        assert time > self.time
-        assert 1 <= passenger.origin <= FLOOR_COUNT
-        assert 1 <= passenger.destination <= FLOOR_COUNT
-        self.arrivals.setdefault(time, []).append(passenger)
-        self.all_passengers.append(passenger)
+    @property
+    def riding(self):
+        return self.cars[0].riding
 
     def press(self, floor, direction):
         """
@@ -93,55 +91,9 @@ class Building(object):
         """
         self.logic.on_called(floor, direction)
 
-    def tick(self):
-        self.time += 1
-        for passenger in self.arrivals.pop(self.time, ()):
-            self._passenger_arrives(passenger)
-
-        if self.motor_direction == UP:
-            self._move(1)
-        elif self.motor_direction == DOWN:
-            self._move(-1)
-        else:
-            self.logic.on_ready()
-            if self.motor_direction is None:
-                self._exchange_passengers()
-
-        assert self.current_floor >= 1
-        assert self.current_floor <= FLOOR_COUNT
-        if self.motor_direction == UP:
-            assert all(p.destination > self.current_floor for p in self.riding)
-        elif self.motor_direction == DOWN:
-            assert all(p.destination < self.current_floor for p in self.riding)
-
-    def run(self, ticks):
-        for _ in range(ticks):
-            self.tick()
-
     def run_until_idle(self, limit=500):
         """Run until nothing is happening and nothing is scheduled to happen."""
-        for _ in range(limit):
-            if self.idle:
-                return
-            self.tick()
-        assert False, "the elevator never finished its work"
-
-    @property
-    def idle(self):
-        return (self.motor_direction is None and self.logic.direction is None
-                and not self.arrivals and not self.waiting and not self.riding)
-
-    @property
-    def everyone_delivered(self):
-        return len(self.delivered) == len(self.all_passengers)
-
-    @property
-    def max_wait(self):
-        return max(p.wait_time for p in self.delivered)
-
-    @property
-    def max_total_time(self):
-        return max(p.total_time for p in self.delivered)
+        ElevatorBank.run_until_idle(self, limit)
 
     def report(self):
         for p in self.all_passengers:
@@ -151,47 +103,9 @@ class Building(object):
                 print("%s: floor %s -> %s, waited %s, door to door %s"
                       % (p.name, p.origin, p.destination, p.wait_time, p.total_time))
 
-    def _passenger_arrives(self, passenger):
-        passenger.arrived_at = self.time
-        if (self.motor_direction is None and self.current_floor == passenger.origin
-                and self.logic.direction in (None, passenger.direction)):
-            # The elevator is already waiting here with its doors open.
-            self._board(passenger)
-        else:
-            self.waiting.append(passenger)
-            self.logic.on_called(passenger.origin, passenger.direction)
-
-    def _move(self, delta):
-        self.current_floor += delta
-        self._emit("%s..." % self.current_floor)
-        self.logic.on_floor_changed()
-        if self.motor_direction is None:
-            self._exchange_passengers()
-
-    def _exchange_passengers(self):
-        floor = self.current_floor
-        for passenger in [p for p in self.riding if p.destination == floor]:
-            self.riding.remove(passenger)
-            passenger.delivered_at = self.time
-            self.delivered.append(passenger)
-            self._emit("<%s out>" % passenger.name)
-        while True:
-            # Board one at a time: the first boarder may commit an idle
-            # elevator to a direction, shutting out passengers going the
-            # other way.
-            eligible = [p for p in self.waiting if p.origin == floor
-                        and self.logic.direction in (None, p.direction)]
-            if not eligible:
-                break
-            self.waiting.remove(eligible[0])
-            self._board(eligible[0])
-
-    def _board(self, passenger):
-        passenger.boarded_at = self.time
-        self.riding.append(passenger)
-        self._emit("<%s in>" % passenger.name)
-        self.logic.on_floor_selected(passenger.destination)
-
-    def _emit(self, token):
-        if self.verbose:
-            print(token, end=' ')
+    def _assign(self, passenger):
+        # There is only one car, so every call goes straight to it. No
+        # shared assignments either: the logic hears each passenger's call
+        # individually, so its parking heuristic learns from all of them.
+        passenger.assigned_car = self.cars[0]
+        self.logic.on_called(passenger.origin, passenger.direction)

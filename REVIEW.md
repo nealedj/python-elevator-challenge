@@ -15,8 +15,11 @@ appendix.
 > this branch — Fix A in `DestinationBank._cost`, Fix B as a
 > `_pick_boarder` boarding-order hook on `ElevatorBank` overridden by
 > `DestinationBank` — and DESTINATION.md gained a "Twice the rush"
-> scenario pinning the surge behaviour. The structural items in Part 1
-> and the further ideas in §2.4 remain open.
+> scenario pinning the surge behaviour. From Part 1, §1.1 (Building is
+> now a one-car ElevatorBank), §1.2 (floor count threaded through
+> EfficientElevatorLogic), and the stray-file/`_choose` items of §1.6
+> are applied; §1.3, §1.4, §1.5, the remaining §1.6 items, and the
+> §2.4 ideas remain open.
 
 ---
 

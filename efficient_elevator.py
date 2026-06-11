@@ -37,11 +37,14 @@ PARKING_MEMORY = 20
 
 
 class EfficientElevatorLogic(ElevatorLogic):
-    def __init__(self, home_floor=None):
+    def __init__(self, home_floor=None, floors=FLOOR_COUNT):
+        """`floors` sets the default home floor (the middle of the building);
+        pass it whenever the building is taller than the README's six floors,
+        or pass `home_floor` to pick the parking spot directly."""
         ElevatorLogic.__init__(self)
         self.parking = False
         self._park_target = None
-        self._home_floor = home_floor or (FLOOR_COUNT + 1) // 2
+        self._home_floor = home_floor or (floors + 1) // 2
         self._recent_origins = deque(maxlen=PARKING_MEMORY)
 
     def on_called(self, floor, direction):

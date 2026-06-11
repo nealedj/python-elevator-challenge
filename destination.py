@@ -54,8 +54,7 @@ class DestinationBank(ElevatorBank):
     def __init__(self, floors=11, cars=6, capacity=10, starting_floors=None,
                  verbose=True, make_logic=None):
         if make_logic is None:
-            home = (floors + 1) // 2
-            make_logic = lambda: EfficientElevatorLogic(home_floor=home)
+            make_logic = lambda: EfficientElevatorLogic(floors=floors)
         ElevatorBank.__init__(self, floors=floors, cars=cars,
                               capacity=capacity,
                               starting_floors=starting_floors,
@@ -76,17 +75,19 @@ class DestinationBank(ElevatorBank):
             car.logic.on_called(passenger.origin, passenger.direction)
 
     def _choose(self, passenger):
-        best, best_cost, best_now = None, None, False
+        candidates = []
         for car in self.cars:
             ready_here = (car.motor_direction is None
                           and car.current_floor == passenger.origin
                           and car.logic.direction in (None, passenger.direction))
             if ready_here and len(car.riding) >= self.capacity:
                 continue  # full car blocking the landing
-            cost = self._cost(car, passenger)
-            if best_cost is None or (cost, car.name) < (best_cost, best.name):
-                best, best_cost, best_now = car, cost, ready_here
-        return best, best_now
+            candidates.append((self._cost(car, passenger), car.name,
+                               car, ready_here))
+        if not candidates:
+            return None, False
+        _, _, car, ready_here = min(candidates)
+        return car, ready_here
 
     def _cost(self, car, passenger):
         eta = self._estimate(car, passenger.origin, passenger.direction)
