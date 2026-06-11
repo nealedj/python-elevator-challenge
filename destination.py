@@ -1,0 +1,93 @@
+"""
+Destination dispatch for the elevator bank: the system busy towers use.
+
+In the conventional bank (`cluster.py`) the controller learns a passenger's
+destination only when they board and press a button. A destination dispatch
+system replaces the hall buttons with lobby kiosks: passengers key in their
+destination *before* boarding, the controller assigns them a car on the
+spot, and the kiosk display sends them to it. There are no buttons in the
+car.
+
+Knowing every origin-destination pair up front lets the controller do the
+one thing that actually raises a bank's capacity: group passengers heading
+to the same floor into the same car. A car that leaves the lobby for one or
+two floors instead of seven turns around far sooner, and during a morning
+rush the whole bank behaves like a set of express trains.
+
+Assignment uses a marginal-cost rule, the heuristic real systems use:
+for each car, estimate the passenger's pickup time, add a toll for every
+*new* stop this passenger would add to the car's plate (scaled by how many
+people are already on that plate, since they all suffer the new stop), and
+heavily penalize a car whose boarding group is already at capacity. The
+cheapest car wins. Passengers for an already-planned floor add no new stop,
+so destination grouping emerges from the cost function by itself.
+
+Cars are unchanged: each runs the LOOK logic with anticipatory parking from
+`efficient_elevator.py`, so idle cars drift back toward recent demand (the
+lobby, during the morning) on their own.
+
+The scenario suite lives in DESTINATION.md. To run it:
+$ python -m doctest DESTINATION.md -o NORMALIZE_WHITESPACE
+"""
+from cluster import ElevatorBank, STOP_COST
+from efficient_elevator import EfficientElevatorLogic
+
+# Assignment cost for a car whose boarding group is already full.
+CAPACITY_PENALTY = 10000
+
+
+class DestinationBank(ElevatorBank):
+    def __init__(self, floors=11, cars=6, capacity=10, starting_floors=None,
+                 verbose=True, make_logic=None):
+        if make_logic is None:
+            home = (floors + 1) // 2
+            make_logic = lambda: EfficientElevatorLogic(home_floor=home)
+        ElevatorBank.__init__(self, floors=floors, cars=cars,
+                              capacity=capacity,
+                              starting_floors=starting_floors,
+                              verbose=verbose, make_logic=make_logic)
+
+    # The kiosk: assign by marginal cost over full origin-destination
+    # knowledge, instead of sharing hall calls per direction.
+
+    def _place(self, passenger):
+        car, board_now = self._choose(passenger)
+        if car is None:
+            return  # every suitable car is full at the landing; retry next tick
+        if board_now:
+            self.waiting.remove(passenger)
+            self._board(passenger, car)
+        else:
+            passenger.assigned_car = car
+            car.logic.on_called(passenger.origin, passenger.direction)
+
+    def _choose(self, passenger):
+        best, best_cost, best_now = None, None, False
+        for car in self.cars:
+            ready_here = (car.motor_direction is None
+                          and car.current_floor == passenger.origin
+                          and car.logic.direction in (None, passenger.direction))
+            if ready_here and len(car.riding) >= self.capacity:
+                continue  # full car blocking the landing
+            cost = self._cost(car, passenger)
+            if best_cost is None or (cost, car.name) < (best_cost, best.name):
+                best, best_cost, best_now = car, cost, ready_here
+        return best, best_now
+
+    def _cost(self, car, passenger):
+        eta = self._estimate(car, passenger.origin, passenger.direction)
+        assigned = [q for q in self.waiting if q.assigned_car is car]
+        boarding_group = [q for q in assigned
+                          if q.origin == passenger.origin
+                          and q.direction == passenger.direction]
+        if len(boarding_group) >= self.capacity:
+            return CAPACITY_PENALTY + eta
+        planned = {q.origin for q in assigned}
+        planned.update(q.destination for q in assigned)
+        planned.update(q.destination for q in car.riding)
+        if car.motor_direction is None:
+            planned.add(car.current_floor)  # already stopped here
+        new_stops = ((passenger.origin not in planned)
+                     + (passenger.destination not in planned))
+        plate = len(car.riding) + len(assigned)
+        return eta + STOP_COST * new_stops * (1 + plate)

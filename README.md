@@ -10,7 +10,7 @@ A naive implementation of the business logic is provided in the `elevator.py` fi
 
 Open a pull request with your solution. Good luck! Have fun!
 
-Once the tests here pass, there is a second, more realistic suite in [SCENARIOS.md](SCENARIOS.md): it simulates passengers arriving over time — rush hours, near misses, and randomized stress tests — and asserts that everybody is delivered within bounded time. It also covers an alternative dispatcher in `efficient_elevator.py` that cuts waiting times on that passenger model; `benchmark.py` compares the two head to head. [CLUSTER.md](CLUSTER.md) goes further still: a bank of six elevators with a group dispatcher serving an eleven-story office tower.
+Once the tests here pass, there is a second, more realistic suite in [SCENARIOS.md](SCENARIOS.md): it simulates passengers arriving over time — rush hours, near misses, and randomized stress tests — and asserts that everybody is delivered within bounded time. It also covers an alternative dispatcher in `efficient_elevator.py` that cuts waiting times on that passenger model; `benchmark.py` compares the two head to head. [CLUSTER.md](CLUSTER.md) goes further still: a bank of six elevators with a group dispatcher serving an eleven-story office tower. And [DESTINATION.md](DESTINATION.md) is the endgame: a destination dispatch system putting that bank through a full working day of a 5,000-person office building.
 
 ## Test Harness
 
