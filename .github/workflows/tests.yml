@@ -21,5 +21,7 @@ jobs:
         run: python -m doctest README.md -o NORMALIZE_WHITESPACE
       - name: Scenario suite
         run: python -m doctest SCENARIOS.md -o NORMALIZE_WHITESPACE
+      - name: Elevator bank suite
+        run: python -m doctest CLUSTER.md -o NORMALIZE_WHITESPACE
       - name: Dispatcher benchmark (asserts delivery on every run)
         run: python benchmark.py

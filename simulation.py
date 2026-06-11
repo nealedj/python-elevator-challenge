@@ -16,8 +16,6 @@ from elevator import ElevatorLogic, UP, DOWN, FLOOR_COUNT
 
 class Passenger(object):
     def __init__(self, name, origin, destination):
-        assert 1 <= origin <= FLOOR_COUNT
-        assert 1 <= destination <= FLOOR_COUNT
         assert origin != destination
         self.name = name
         self.origin = origin
@@ -83,6 +81,8 @@ class Building(object):
     def schedule(self, time, passenger):
         """Have a passenger show up at their origin floor at the given time."""
         assert time > self.time
+        assert 1 <= passenger.origin <= FLOOR_COUNT
+        assert 1 <= passenger.destination <= FLOOR_COUNT
         self.arrivals.setdefault(time, []).append(passenger)
         self.all_passengers.append(passenger)
 
