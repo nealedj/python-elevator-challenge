@@ -5,13 +5,13 @@ Runs both ElevatorLogic (the sweep/LOOK algorithm from elevator.py) and
 EfficientElevatorLogic (LOOK plus anticipatory parking) over many randomized
 traffic patterns and reports passenger wait and door-to-door times.
 
-$ python benchmark.py
+$ python -m elevators.benchmark
 """
 import random
 
-from elevator import ElevatorLogic, FLOOR_COUNT
-from efficient_elevator import EfficientElevatorLogic
-from simulation import Building, Passenger
+from .elevator import ElevatorLogic, FLOOR_COUNT
+from .efficient_elevator import EfficientElevatorLogic
+from .simulation import Building, Passenger
 
 
 def random_trip(rng, pattern):

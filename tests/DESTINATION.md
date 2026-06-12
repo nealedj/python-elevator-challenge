@@ -4,17 +4,14 @@ The bank in [CLUSTER.md](CLUSTER.md) is a *conventional* group: passengers press
 
 With destination dispatch there are no up/down buttons and no buttons in the car. Passengers key their destination into a lobby kiosk *before* boarding; the controller — which now knows every origin–destination pair up front — assigns them a car on the spot, and the kiosk display sends them to it. Knowing destinations in advance lets the controller do the one thing that genuinely raises a bank's handling capacity: **group passengers going to the same floor into the same car**. A car that leaves the lobby for one or two floors instead of seven turns around far sooner.
 
-The implementation is `destination.py`. Assignment uses the marginal-cost heuristic real systems use: estimate each car's pickup time, add a toll for every *new* stop the passenger would add to that car's plan (scaled by how many people already share the plan, since they all suffer the new stop), and heavily penalize a car whose boarding group is already at capacity (cars hold 10). The cheapest car wins — and grouping emerges from the cost function by itself. Finding the true optimum online is intractable; this is the practical frontier. The cars themselves are unchanged: each still runs the LOOK-with-parking logic from `efficient_elevator.py`.
+The implementation is `elevators/destination.py`. Assignment uses the marginal-cost heuristic real systems use: estimate each car's pickup time, add a toll for every *new* stop the passenger would add to that car's plan (scaled by how many people already share the plan, since they all suffer the new stop), and heavily penalize a car whose boarding group is already at capacity (cars hold 10). The cheapest car wins — and grouping emerges from the cost function by itself. Finding the true optimum online is intractable; this is the practical frontier. The cars themselves are unchanged: each still runs the LOOK-with-parking logic from `elevators/efficient_elevator.py`.
 
-To run this suite:
+To run this suite from the repository root:
 
-    python -m doctest DESTINATION.md -o NORMALIZE_WHITESPACE
+    python -m doctest tests/DESTINATION.md -o NORMALIZE_WHITESPACE
 
     >>> import random
-    >>> from destination import DestinationBank
-    >>> from cluster import ElevatorBank
-    >>> from elevator import ElevatorLogic
-    >>> from simulation import Passenger
+    >>> from elevators import DestinationBank, ElevatorBank, ElevatorLogic, Passenger
 
 ## The kiosk knows where you're going
 

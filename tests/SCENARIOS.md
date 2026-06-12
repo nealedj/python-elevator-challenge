@@ -1,18 +1,18 @@
 # Realistic Elevator Scenarios
 
-The tests in `README.md` drive the elevator by pressing its buttons in a script. This alternative suite is one level more realistic: it simulates the *people*. Passengers arrive over time, press the call button on their floor, board only when the elevator stops there committed to the direction they want — just like real people reading the indicator above the door — select their destination once inside, and get off when they reach it.
+The tests in [CHALLENGE.md](CHALLENGE.md) drive the elevator by pressing its buttons in a script. This alternative suite is one level more realistic: it simulates the *people*. Passengers arrive over time, press the call button on their floor, board only when the elevator stops there committed to the direction they want — just like real people reading the indicator above the door — select their destination once inside, and get off when they reach it.
 
-The harness lives in `simulation.py` and is instrumented: it records when each passenger arrived, boarded, and was delivered, so we can make assertions about waiting times, not just button presses. It also checks invariants on every tick: the elevator must stay within the building, and it must never carry a passenger *away* from their destination.
+The harness lives in `elevators/simulation.py` and is instrumented: it records when each passenger arrived, boarded, and was delivered, so we can make assertions about waiting times, not just button presses. It also checks invariants on every tick: the elevator must stay within the building, and it must never carry a passenger *away* from their destination.
 
 Simplifications: the car has unlimited capacity by default (pass `Building(capacity=...)` to model a finite car), and moving one floor, pausing, or exchanging passengers each takes exactly one tick.
 
-To run this suite:
+To run this suite from the repository root:
 
-    python -m doctest SCENARIOS.md -o NORMALIZE_WHITESPACE
+    python -m doctest tests/SCENARIOS.md -o NORMALIZE_WHITESPACE
 
-Output conventions match the README — `3...` means the elevator moved to floor 3 — plus `<Ann in>` and `<Ann out>` for boardings and deliveries.
+Output conventions match the challenge suite — `3...` means the elevator moved to floor 3 — plus `<Ann in>` and `<Ann out>` for boardings and deliveries.
 
-    >>> from simulation import Building, Passenger, UP, DOWN, FLOOR_COUNT
+    >>> from elevators import Building, Passenger, UP, DOWN, FLOOR_COUNT
 
 ## Morning rush
 
@@ -155,12 +155,12 @@ And twenty more seeds, held to a hard service guarantee. A sweep over six floors
 
 ## A more efficient dispatcher
 
-The sweep algorithm in `elevator.py` is what the README's tests mandate, and benchmarking (`python benchmark.py`) shows its trip scheduling is hard to beat: a textbook nearest-call-first greedy dispatcher measures *worse* on every traffic pattern, because stopping for an opposite-direction caller commits the car to that passenger's whole trip and breaks up the batching that sweeps get for free.
+The sweep algorithm in `elevators/elevator.py` is what the challenge tests mandate, and benchmarking (`python -m elevators.benchmark`) shows its trip scheduling is hard to beat: a textbook nearest-call-first greedy dispatcher measures *worse* on every traffic pattern, because stopping for an opposite-direction caller commits the car to that passenger's whole trip and breaks up the batching that sweeps get for free.
 
-What the sweep ignores is where the car waits when it has nothing to do: it strands itself wherever the last sweep ended, usually at the top or bottom of the building. The dispatcher in `efficient_elevator.py` keeps the sweep scheduling and adds anticipatory parking — when idle, it relocates toward the median floor of recent call origins, so it is already nearby when the next passenger shows up.
+What the sweep ignores is where the car waits when it has nothing to do: it strands itself wherever the last sweep ended, usually at the top or bottom of the building. The dispatcher in `elevators/efficient_elevator.py` keeps the sweep scheduling and adds anticipatory parking — when idle, it relocates toward the median floor of recent call origins, so it is already nearby when the next passenger shows up.
 
-    >>> from elevator import ElevatorLogic
-    >>> from efficient_elevator import EfficientElevatorLogic
+    >>> from elevators import ElevatorLogic
+    >>> from elevators import EfficientElevatorLogic
 
 Watch where the car goes after delivering Ann to the top floor: instead of waiting at 6, it heads back to the middle of the building.
 

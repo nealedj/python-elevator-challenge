@@ -22,10 +22,10 @@ car fills up, whoever is left on the landing is handed to the next-best car.
 needs it -- e.g. `lambda: EfficientElevatorLogic(floors=floors)` -- since
 the bank calls them with no arguments.
 
-The scenario suite lives in CLUSTER.md. To run it:
-$ python -m doctest CLUSTER.md -o NORMALIZE_WHITESPACE
+The scenario suite lives in tests/CLUSTER.md. To run it:
+$ python -m doctest tests/CLUSTER.md -o NORMALIZE_WHITESPACE
 """
-from elevator import ElevatorLogic, UP, DOWN
+from .elevator import ElevatorLogic, UP, DOWN
 
 # Estimated ticks a car spends on each stop already on its plate.
 STOP_COST = 2

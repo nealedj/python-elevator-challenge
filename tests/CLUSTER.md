@@ -2,7 +2,7 @@
 
 The single-car scenarios in [SCENARIOS.md](SCENARIOS.md) end where real office buildings begin. This suite models a far more complex setup: a **bank of six elevators** (cars A through F) serving an **eleven-story** office tower, with a group controller deciding which car answers which call.
 
-The harness lives in `cluster.py`. Each car independently runs the unmodified LOOK logic from `elevator.py` — which never needed to know how tall the building is — while the group controller handles dispatch the way modern systems do:
+The harness lives in `elevators/cluster.py`. Each car independently runs the unmodified LOOK logic from `elevators/elevator.py` — which never needed to know how tall the building is — while the group controller handles dispatch the way modern systems do:
 
 - When a passenger presses a hall button, the controller estimates every car's time of arrival at that floor (straight-line distance for an idle car; distance along the current sweep plus a toll per pending stop; or the round trip via the end of the sweep) and assigns the call to the quickest car.
 - A hall lantern tells the passenger which car will serve them, so they board that car and only that car. Same-direction calls on the same floor share one assignment.
@@ -10,14 +10,13 @@ The harness lives in `cluster.py`. Each car independently runs the unmodified LO
 
 The same per-tick invariants from the single-car suite are enforced for every car: stay inside the building, and never carry a rider away from their destination.
 
-To run this suite:
+To run this suite from the repository root:
 
-    python -m doctest CLUSTER.md -o NORMALIZE_WHITESPACE
+    python -m doctest tests/CLUSTER.md -o NORMALIZE_WHITESPACE
 
 Movement tokens are prefixed with the car's name — `C6...` means car C moved to floor 6 — and boardings name the car: `<Pia in C>`.
 
-    >>> from cluster import ElevatorBank
-    >>> from simulation import Passenger
+    >>> from elevators import ElevatorBank, Passenger
 
 ## Six cars, one call
 
