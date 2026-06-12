@@ -1,15 +1,13 @@
-import operator
-
-
 FLOOR_COUNT = 6
+
 
 class Direction(int):
     UP = 1
     DOWN = 2
 
     def __invert__(self):
-        if self == self.UP: return self.DOWN
-        return self.UP
+        if self == self.UP: return DOWN
+        return UP
 
 
 UP = Direction(Direction.UP)
@@ -18,23 +16,31 @@ DOWN = Direction(Direction.DOWN)
 
 class ElevatorLogic(object):
     """
-    An incorrect implementation. Can you make it pass all the tests?
+    Elevator business logic implementing a "sweep" algorithm.
 
-    Fix the methods below to implement the correct logic for elevators.
+    The elevator commits to a direction and services every request that lies
+    ahead of it in that direction before turning around. While it is committed,
+    floor selections that contradict the direction are ignored. Calls are never
+    forgotten, but a call in the opposite direction is only serviced when the
+    elevator has nothing left to do further ahead. When the elevator stops at a
+    floor that called it in both directions, it clears one direction at a time,
+    pausing once in between, like real elevators that close and reopen their
+    doors to signal that they have turned around.
+
     The tests are integrated into `README.md`. To run the tests:
-    $ python -m doctest -v README.md
-
-    To learn when each method is called, read its docstring.
-    To interact with the world, you can get the current floor from the
-    `current_floor` property of the `callbacks` object, and you can move the
-    elevator by setting the `motor_direction` property. See below for how this is done.
+    $ python -m doctest README.md -o NORMALIZE_WHITESPACE
     """
     def __init__(self):
-        # Feel free to add any instance variables you want.
-        self.destination_floor = None
         self.callbacks = None
-        self.pickup_orders = []
-        self.dropoff_orders = []
+        # The direction the elevator considers itself to be going, which
+        # persists while it is stopped. None means it is idle and free to go
+        # either way.
+        self.direction = None
+        # Pending calls as (floor, direction) pairs, oldest first. An idle
+        # elevator heads toward the floor that called first.
+        self.calls = []
+        # Floors selected from inside the elevator.
+        self.selections = set()
 
     def on_called(self, floor, direction):
         """
@@ -45,8 +51,13 @@ class ElevatorLogic(object):
         floor: the floor that the elevator is being called to
         direction: the direction the caller wants to go, up or down
         """
-        if self._going_in_same_direction(floor) or not self.has_orders:
-            self.pickup_orders.append((floor, direction))
+        if (self._stopped and floor == self.callbacks.current_floor
+                and self.direction in (None, direction)):
+            # The elevator is already waiting here, going the right way, so
+            # the call is serviced on the spot.
+            return
+        if (floor, direction) not in self.calls:
+            self.calls.append((floor, direction))
 
     def on_floor_selected(self, floor):
         """
@@ -56,43 +67,45 @@ class ElevatorLogic(object):
 
         floor: the floor that was requested
         """
-        self.dropoff_orders.append(floor)
+        towards = self._direction_to(floor)
+        if towards is None:
+            # Selecting the floor the elevator is already at does nothing. In
+            # particular, a selection made just as the elevator passes the
+            # floor has missed the boat.
+            return
+        if self.direction is not None and towards != self.direction:
+            # The selection contradicts the current direction, so it is
+            # ignored entirely.
+            return
+        self.direction = towards
+        self.selections.add(floor)
 
     def on_floor_changed(self):
         """
         This lets you know that the elevator has moved one floor up or down.
         You should decide whether or not you want to stop the elevator.
         """
-        current_floor = self.callbacks.current_floor
+        floor = self.callbacks.current_floor
+        moving = self.callbacks.motor_direction
+        should_stop = False
 
-        # if anybody wants to get off at the current floor, stop
-        if current_floor in self.dropoff_orders:
-            self.dropoff_orders.remove(current_floor)
-            self.pause()
-            return
+        if floor in self.selections:
+            self.selections.remove(floor)
+            should_stop = True
 
-        # if somebody wants to be picked up to go in the same direction as the elevator, stop
-        same_direction_order = (current_floor, self.callbacks.motor_direction)
-        if same_direction_order in self.pickup_orders:
-            self.pickup_orders.remove(same_direction_order)
-            self.pause()
-            return
+        if (floor, moving) in self.calls:
+            self.calls.remove((floor, moving))
+            self.direction = moving
+            should_stop = True
+        elif (floor, ~moving) in self.calls and not self._requests_beyond(floor, moving):
+            # Nothing requires going further, so the elevator stops for the
+            # caller going the other way and turns around.
+            self.calls.remove((floor, ~moving))
+            self.direction = ~moving
+            should_stop = True
 
-        # if there are dropoff orders in the same direction that the lift is going then keep going
-        up_floors, down_floors = self._split_up_down_dropoff_orders(current_floor)
-        if ((self.going_down and down_floors) or (self.going_up and up_floors)):
-            # keep going
-            return
-
-        # if somebody wants to be picked up to go in the opposite direction of the lift then stop
-        opposite_direction_order = (current_floor, ~self.callbacks.motor_direction)
-        if opposite_direction_order in self.pickup_orders:
-            self.pickup_orders.remove(opposite_direction_order)
-            self.pause()
-            return
-
-        # if not self.has_orders:
-        #     self.pause()
+        if should_stop:
+            self.callbacks.motor_direction = None
 
     def on_ready(self):
         """
@@ -100,84 +113,48 @@ class ElevatorLogic(object):
         Maybe passengers have embarked and disembarked. The doors are closed,
         time to actually move, if necessary.
         """
-        current_floor = self.callbacks.current_floor
+        floor = self.callbacks.current_floor
 
-        destination_floor, preferred_direction = self._get_destination_floor()
-        if destination_floor > current_floor:
-            self.callbacks.motor_direction = UP
-        elif destination_floor < current_floor:
-            self.callbacks.motor_direction = DOWN
+        if self.direction is None:
+            # Idle: head toward the floor that called first.
+            if self.calls:
+                towards = self._direction_to(self.calls[0][0])
+                if towards is None:
+                    self.calls.pop(0)
+                else:
+                    self._set_motor(towards)
+            return
 
-    def pause(self):
-        self.callbacks.motor_direction = None
+        if self._requests_beyond(floor, self.direction):
+            self._set_motor(self.direction)
+        elif (floor, ~self.direction) in self.calls:
+            # Reopen the doors for the caller going the other way. The old
+            # direction is cleared, but the elevator waits one step before
+            # moving on.
+            self.calls.remove((floor, ~self.direction))
+            self.direction = ~self.direction
+        elif self._requests_beyond(floor, ~self.direction):
+            self._set_motor(~self.direction)
+        else:
+            self.direction = None
+
+    def _set_motor(self, direction):
+        self.direction = direction
+        self.callbacks.motor_direction = direction
 
     @property
-    def going_up(self):
-        return self.callbacks.motor_direction == UP
+    def _stopped(self):
+        return self.callbacks.motor_direction is None
 
-    @property
-    def going_down(self):
-        return self.callbacks.motor_direction == DOWN
+    def _requests_beyond(self, floor, direction):
+        """Is any call or selection strictly beyond this floor, going this way?"""
+        floors = [f for f, _ in self.calls]
+        floors.extend(self.selections)
+        if direction == UP:
+            return any(f > floor for f in floors)
+        return any(f < floor for f in floors)
 
-    @property
-    def stopped(self):
-        return not self.callbacks.motor_direction
-
-    @property
-    def has_orders(self):
-        return self.pickup_orders or self.dropoff_orders
-
-    def _split_up_down_dropoff_orders(self, current_floor):
-        grouped = {
-            current_floor < order: order
-            for order in self.dropoff_orders
-            if order != current_floor
-        }
-
-        up, down = grouped.get(True, []), grouped.get(False, [])
-        return up, down
-
-    def _get_destination_floor(self):
-        dropoff_floor = next(iter(self.dropoff_orders), None)
-        order = next(iter(self.pickup_orders), None)
-        if dropoff_floor:
-            return dropoff_floor, self._get_direction_to_floor(dropoff_floor)
-        
-        if order:
-            return order
-
-        return None, None
-
-    def _going_in_same_direction(self, floor):
-        direction_to_floor = self._get_direction_to_floor(floor)
-        current_direction = self.callbacks.motor_direction
-        pending_direction = self._get_destination_floor()[1]
-
-        return (
-            direction_to_floor == current_direction or
-            direction_to_floor == pending_direction
-        )
-
-    def _get_direction_to_floor(self, floor):
-        op_map = (
-            (operator.lt, Direction.DOWN),
-            (operator.gt, Direction.UP),
-            (operator.eq, None),
-        )
-        return next(
-            value for op, value in op_map
-            if op(floor, self.callbacks.current_floor)
-        )
-
-    def status(self):
-        print("""
-dropoff_orders: {},
-self.pickup_orders: {},
-current_floor: {},
-motor_direction: {}
-""".format(
-    self.dropoff_orders,
-    self.pickup_orders,
-    self.callbacks.current_floor,
-    self.callbacks.motor_direction
-))
+    def _direction_to(self, floor):
+        if floor > self.callbacks.current_floor: return UP
+        if floor < self.callbacks.current_floor: return DOWN
+        return None
