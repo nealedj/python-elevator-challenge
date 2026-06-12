@@ -54,16 +54,22 @@ class Building(ElevatorBank):
     waiting passengers board, but only if the elevator is committed to the
     direction they want to go -- just like real people reading the direction
     indicator above the door.
+
+    The car holds `capacity` passengers; the default is unlimited, the
+    documented simplification SCENARIOS.md is written against (its heaviest
+    traffic never exceeds five simultaneous riders, so a realistic limit
+    would never bind there anyway). Pass a finite capacity to model a real
+    car: whoever finds it full waits for it to come around again.
     """
 
     _never_finished = "the elevator never finished its work"
 
     def __init__(self, logic=None, starting_floor=1, verbose=True,
-                 floors=FLOOR_COUNT):
+                 floors=FLOOR_COUNT, capacity=float('inf')):
         if logic is None:
             logic = ElevatorLogic()
         ElevatorBank.__init__(self, floors=floors, cars=1,
-                              capacity=float('inf'),
+                              capacity=capacity,
                               starting_floors=[starting_floor],
                               verbose=verbose, make_logic=lambda: logic,
                               car_names=[''])
@@ -104,8 +110,17 @@ class Building(ElevatorBank):
                       % (p.name, p.origin, p.destination, p.wait_time, p.total_time))
 
     def _assign(self, passenger):
-        # There is only one car, so every call goes straight to it. No
-        # shared assignments either: the logic hears each passenger's call
+        car = self.cars[0]
+        # A call registered while the car is stopped right here, pointing
+        # the right way, would be swallowed as already serviced -- and the
+        # only reason we are assigning instead of boarding is that the car
+        # is full. Wait for it to leave and try again next tick.
+        if (car.motor_direction is None
+                and car.current_floor == passenger.origin
+                and car.logic.direction in (None, passenger.direction)):
+            return
+        # Otherwise the call goes straight to the only car. No shared
+        # assignments either: the logic hears each passenger's call
         # individually, so its parking heuristic learns from all of them.
-        passenger.assigned_car = self.cars[0]
+        passenger.assigned_car = car
         self.logic.on_called(passenger.origin, passenger.direction)

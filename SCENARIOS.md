@@ -4,7 +4,7 @@ The tests in `README.md` drive the elevator by pressing its buttons in a script.
 
 The harness lives in `simulation.py` and is instrumented: it records when each passenger arrived, boarded, and was delivered, so we can make assertions about waiting times, not just button presses. It also checks invariants on every tick: the elevator must stay within the building, and it must never carry a passenger *away* from their destination.
 
-Simplifications: the car has unlimited capacity, and moving one floor, pausing, or exchanging passengers each takes exactly one tick.
+Simplifications: the car has unlimited capacity by default (pass `Building(capacity=...)` to model a finite car), and moving one floor, pausing, or exchanging passengers each takes exactly one tick.
 
 To run this suite:
 
@@ -99,6 +99,25 @@ Quin rides from the lobby toward 6. Rex appears on 3 just *before* the elevator 
     Quin: floor 1 -> 6, waited 0, door to door 7
     Rex: floor 3 -> 5, waited 0, door to door 3
     Sam: floor 3 -> 4, waited 7, door to door 9
+
+## A car that fills up
+
+The suite's traffic never crowds the car — its heaviest scenarios peak at five simultaneous riders — so by default capacity is unlimited, as the laws of physics are someone else's department. But the harness can model a real car: give it a finite capacity, and whoever finds it full watches the doors close and waits for it to come around again. Kim, Lee, and Max all head down from 3 in a car that holds two.
+
+    >>> b = Building(capacity=2)
+    >>> b.schedule(1, Passenger('Kim', 3, 1))
+    >>> b.schedule(1, Passenger('Lee', 3, 1))
+    >>> b.schedule(1, Passenger('Max', 3, 1))
+    >>> b.run_until_idle()
+    2... 3... <Kim in> <Lee in> 2... 1... <Kim out> <Lee out> 2... 3... <Max in>
+    2... 1... <Max out>
+
+Max pays for the second round trip, but he is never forgotten:
+
+    >>> b.report()
+    Kim: floor 3 -> 1, waited 2, door to door 5
+    Lee: floor 3 -> 1, waited 2, door to door 5
+    Max: floor 3 -> 1, waited 8, door to door 11
 
 ## Rush hour stress test
 
