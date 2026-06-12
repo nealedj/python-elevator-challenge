@@ -14,11 +14,11 @@ harness in `cluster.py`. A `Building` is an `ElevatorBank` with one anonymous
 car of unlimited capacity, so dispatch is trivial (every call goes to the only
 car) and the trace reads `2... <Ann in>` rather than `A2... <Ann in A>`.
 
-The scenario suite lives in SCENARIOS.md. To run it:
-$ python -m doctest SCENARIOS.md -o NORMALIZE_WHITESPACE
+The scenario suite lives in tests/SCENARIOS.md. To run it:
+$ python -m doctest tests/SCENARIOS.md -o NORMALIZE_WHITESPACE
 """
-from cluster import ElevatorBank
-from elevator import ElevatorLogic, UP, DOWN, FLOOR_COUNT
+from .cluster import ElevatorBank
+from .elevator import ElevatorLogic, UP, DOWN, FLOOR_COUNT
 
 
 class Passenger(object):

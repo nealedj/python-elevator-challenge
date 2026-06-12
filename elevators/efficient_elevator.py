@@ -25,12 +25,12 @@ gets worse, while heavy-load performance and LOOK's no-starvation guarantee
 are untouched. Parking trips are cancelled the moment a real call arrives.
 
 This dispatcher targets the passenger model in `simulation.py` and
-SCENARIOS.md. It deliberately does not pass the README suite, whose tests
-require the car to stay where it stops.
+tests/SCENARIOS.md. It deliberately does not pass the challenge suite in
+tests/CHALLENGE.md, whose tests require the car to stay where it stops.
 """
 from collections import deque
 
-from elevator import ElevatorLogic, UP, DOWN, FLOOR_COUNT
+from .elevator import ElevatorLogic, UP, DOWN, FLOOR_COUNT
 
 # How many recent call origins to remember when choosing where to park.
 PARKING_MEMORY = 20
@@ -39,8 +39,8 @@ PARKING_MEMORY = 20
 class EfficientElevatorLogic(ElevatorLogic):
     def __init__(self, home_floor=None, floors=FLOOR_COUNT):
         """`floors` sets the default home floor (the middle of the building);
-        pass it whenever the building is taller than the README's six floors,
-        or pass `home_floor` to pick the parking spot directly."""
+        pass it whenever the building is taller than the challenge's six
+        floors, or pass `home_floor` to pick the parking spot directly."""
         ElevatorLogic.__init__(self)
         self.parking = False
         self._park_target = None

@@ -1,5 +1,10 @@
 # Code Review: `claude/elevator-simulation-1v9ltq`
 
+*File paths in this document refer to the flat layout the branch had at
+review time; the modules have since moved into `elevators/` and the
+doctest suites into `tests/` (the old README.md is now
+`tests/CHALLENGE.md`).*
+
 A review of the elevator simulation stack — `elevator.py` (LOOK logic),
 `efficient_elevator.py` (LOOK + anticipatory parking), `simulation.py`
 (single-car passenger harness), `cluster.py` (six-car bank with a group

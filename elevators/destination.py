@@ -37,11 +37,11 @@ Cars are unchanged: each runs the LOOK logic with anticipatory parking from
 `efficient_elevator.py`, so idle cars drift back toward recent demand (the
 lobby, during the morning) on their own.
 
-The scenario suite lives in DESTINATION.md. To run it:
-$ python -m doctest DESTINATION.md -o NORMALIZE_WHITESPACE
+The scenario suite lives in tests/DESTINATION.md. To run it:
+$ python -m doctest tests/DESTINATION.md -o NORMALIZE_WHITESPACE
 """
-from cluster import ElevatorBank, STOP_COST
-from efficient_elevator import EfficientElevatorLogic
+from .cluster import ElevatorBank, STOP_COST
+from .efficient_elevator import EfficientElevatorLogic
 
 # Added to the assignment cost of a car whose boarding group is already
 # full. Added, not substituted: the grouping toll must survive, or every

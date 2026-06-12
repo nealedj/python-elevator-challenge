@@ -27,8 +27,8 @@ class ElevatorLogic(object):
     pausing once in between, like real elevators that close and reopen their
     doors to signal that they have turned around.
 
-    The tests are integrated into `README.md`. To run the tests:
-    $ python -m doctest README.md -o NORMALIZE_WHITESPACE
+    The tests are integrated into `tests/CHALLENGE.md`. To run the tests:
+    $ python -m doctest tests/CHALLENGE.md -o NORMALIZE_WHITESPACE
     """
     def __init__(self):
         self.callbacks = None
